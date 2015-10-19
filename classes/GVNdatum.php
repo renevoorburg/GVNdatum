@@ -11,7 +11,6 @@
  *
  * These formats are currently problematic:
  * - all years BCE!
- * - years BCE
  * - "1892, 15/16 aug."
  * - "1911, September 11-16"
  * - "1938, Pinksteren"
