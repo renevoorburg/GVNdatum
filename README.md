@@ -18,6 +18,9 @@ Some examples of the dates or dateranges that are understood are:
 * "winter 1886-1887" => start: "1886-12-21", end: "1887-03-20"
 *  "17XX" => start: "1700", end: "1799"
 * "Begonnen 14 oktober 1883, voltooid 29 november 1883" => start: "1883-10-14", end: "1883-11-29" 
+* "van -150000 tot -100000" => start: "-150000", end: "-100000"
+* "van -27 tot 14" => start: "-27", end: "14"
+* "van 98 tot 117", => start: "98", end: "117"
 * "negentiende-eeuws handschrif" => start: "1800", end: "1899"
 * "tweede wereldoorlog" => start: "1939-09-01", end: "1945-08-15"
 

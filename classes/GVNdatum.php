@@ -4,13 +4,13 @@
  * GVNdatum normalizes dates from "Geheugen van Nederland" to an ISO 8601 start and end date
  * @author René Voorburg
  * @date 2015-10-15
+ * @version 2015-10-27
  * thanks to Hack-a-LOD
  *
  * See testdata.json for dates that are understood.
  * Focus has been to support "Geheugen van Nederland", improvement for more general purposes welcome.
  *
  * These formats are currently problematic:
- * - all years BCE!
  * - "1892, 15/16 aug."
  * - "1911, September 11-16"
  * - "1938, Pinksteren"
@@ -37,14 +37,20 @@ class GVNdatum
      * @param array $date ; use $this->period['start'] or $this->period['end']
      * @return string ; date in ISO 8601 format
      */
-    private function dateString(array $date)
+    private function dateString($which)
     {
         $ret = '';
-        if ($date['year']) {
-            $ret = str_pad($date['year'], 4, "0", STR_PAD_LEFT);
-            $ret .= $date['month'] ? '-' . str_pad($date['month'], 2, "0", STR_PAD_LEFT) : '';
-            $ret .= $date['day'] ? '-' . str_pad($date['day'], 2, "0", STR_PAD_LEFT) : '';
+        if ($which == 'start') {
+            $ret .= $this->getStartYear() ;
+            $ret .= $this->getStartMonth() ? '-'.$this->getStartMonth() : '';
+            $ret .= $this->getStartDay() ? '-'.$this->getStartDay() : '';
+        } else {
+            $ret .= $this->getEndYear() ;
+            $ret .= $this->getEndMonth() ? '-'.$this->getEndMonth() : '';
+            $ret .= $this->getEndDay() ? '-'.$this->getEndDay() : '';
         }
+
+
         return $ret;
     }
 
@@ -56,41 +62,51 @@ class GVNdatum
         $date_RE = '(((' . self::DAY_RE . ')' . self::PARTSEP_RE . ')?(' . self::MONTH_RE . ')' . self::PARTSEP_RE . ')?(' . self::YEAR_RE . ')';
         $untildatepart_RE = '(' . self::UNTILSEP_RE . $date_RE . ')?';
 
-        preg_match('#' . $date_RE . $untildatepart_RE . '#', $this->processedDateStr, $matches);
+        // ugly branch for yet unprocessed dates like "van -150000 tot -100000"
+        if (preg_match('#^van (-?[0-9]*) tot (-?[0-9]*)$#', $this->processedDateStr, $matches)) {
+            $this->period['start']['year'] = $matches[1];
+            $this->period['end']['year'] = $matches[2];
 
-        $day = isset($matches[3]) ? (int)$matches[3] : null;
-        $month = isset($matches[4]) ? (int)$matches[4] : null;
-        $year = isset($matches[5]) ? (int)$matches[5] : null;
+        } else {
+            preg_match('#' . $date_RE . $untildatepart_RE . '#', $this->processedDateStr, $matches);
 
-        if (isset($matches[0]) && $year != 0) {
-            // we have a first match:
-            if ($matches[1] && $month > 0) {
-                // have a month
-                if (($matches[2] && $day > 0)) {
-                    // have a day
-                    $this->period['start']['day'] = $day;
-                }
-                $this->period['start']['month'] = $month;
-            }
-            $this->period['start']['year'] = $year;
+            $day = isset($matches[3]) ? (int)$matches[3] : null;
+            $month = isset($matches[4]) ? (int)$matches[4] : null;
+            $year = isset($matches[5]) ? (int)$matches[5] : null;
 
-            $day = isset($matches[10]) ? (int)$matches[10] : null;
-            $month = isset($matches[11]) ? (int)$matches[11] : null;
-            $year = isset($matches[12]) ? (int)$matches[12] : null;
-            if (isset($matches[6]) && $year != 0) {
-                // we have a second match:
-                if ($matches[8] && $month > 0) {
+
+            if (isset($matches[0]) && $year != 0) {
+                // we have a first match:
+                if ($matches[1] && $month > 0) {
                     // have a month
-                    if (($matches[9] && $day > 0)) {
+                    if (($matches[2] && $day > 0)) {
                         // have a day
-                        $this->period['end']['day'] = $day;
+                        $this->period['start']['day'] = $day;
                     }
-                    $this->period['end']['month'] = $month;
+                    $this->period['start']['month'] = $month;
                 }
-                $this->period['end']['year'] = $year;
+                $this->period['start']['year'] = $year;
+
+                $day = isset($matches[10]) ? (int)$matches[10] : null;
+                $month = isset($matches[11]) ? (int)$matches[11] : null;
+                $year = isset($matches[12]) ? (int)$matches[12] : null;
+                if (isset($matches[6]) && $year != 0) {
+                    // we have a second match:
+                    if ($matches[8] && $month > 0) {
+                        // have a month
+                        if (($matches[9] && $day > 0)) {
+                            // have a day
+                            $this->period['end']['day'] = $day;
+                        }
+                        $this->period['end']['month'] = $month;
+                    }
+                    $this->period['end']['year'] = $year;
+                }
             }
         }
+
     }
+
 
     /**
      * @param string $dateStr ;
@@ -376,10 +392,10 @@ class GVNdatum
                 $centuries . $f . ' - ' . $centuries . $t, $dateStr);
         }
 
-        // 12345 is incorrect
-        if (preg_match('#[0-9]{5}#', $dateStr)) {
-            $dateStr = '';
-        }
+//        // 12345 is incorrect
+//        if (preg_match('#[0-9]{5}#', $dateStr)) {
+//            $dateStr = '';
+//        }
 
 
 
@@ -389,12 +405,72 @@ class GVNdatum
 
     public function getStartDate()
     {
-        return $this->dateString($this->period['start']);
+        return $this->dateString('start');
     }
 
     public function getEndDate()
     {
-        return $this->dateString($this->period['end']);
+        return $this->dateString('end');
+    }
+
+    public function getStartYear() {
+        $ret = '';
+        $year = $this->period['start']['year'] ? $this->period['start']['year'] : '';
+        if ($year) {
+            if ($year < 0) {
+                $ret .= '-';
+            }
+            $ret .= str_pad(abs($year), 4, "0", STR_PAD_LEFT);
+        }
+        return $ret;
+    }
+
+    public function getStartMonth() {
+        $ret = '';
+        $month = $this->period['start']['month'] ? $this->period['start']['month'] : '';
+        if ($month) {
+            $ret .= str_pad($month, 2, "0", STR_PAD_LEFT);
+        }
+        return $ret;
+    }
+
+    public function getStartDay() {
+        $ret = '';
+        $day = $this->period['start']['day'] ? $this->period['start']['day'] : '';
+        if ($day) {
+            $ret .= str_pad($day, 2, "0", STR_PAD_LEFT);
+        }
+        return $ret;
+    }
+
+    public function getEndYear() {
+        $ret = '';
+        $year = $this->period['end']['year'] ? $this->period['end']['year'] : '';
+        if ($year) {
+            if ($year < 0) {
+                $ret .= '-';
+            }
+            $ret .= str_pad(abs($year), 4, "0", STR_PAD_LEFT);
+        }
+        return $ret;
+    }
+
+    public function getEndMonth() {
+        $ret = '';
+        $month = $this->period['end']['month'] ? $this->period['end']['month'] : '';
+        if ($month) {
+            $ret .= str_pad($month, 2, "0", STR_PAD_LEFT);
+        }
+        return $ret;
+    }
+
+    public function getEndDay() {
+        $ret = '';
+        $day = $this->period['end']['day'] ? $this->period['end']['day'] : '';
+        if ($day) {
+            $ret .= str_pad($day, 2, "0", STR_PAD_LEFT);
+        }
+        return $ret;
     }
 
 }
